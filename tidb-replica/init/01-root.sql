@@ -1,0 +1,2 @@
+-- 初始化脚本占位，可添加建库、建表等
+-- CREATE DATABASE IF NOT EXISTS mydb;

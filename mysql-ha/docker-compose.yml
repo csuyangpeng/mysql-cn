@@ -1,0 +1,71 @@
+services:
+  mysql-master:
+    image: registry.cn-hangzhou.aliyuncs.com/10_18_1_2_5000/mysql:8.0
+    container_name: mysql-master
+    hostname: mysql-master
+    ports:
+      - "13306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+    volumes:
+      - ./master/data:/var/lib/mysql
+      - ./master/conf:/etc/mysql/conf.d:ro
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - /etc/localtime:/etc/localtime:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123456"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - mysql-ha
+
+  mysql-slave:
+    image: registry.cn-hangzhou.aliyuncs.com/10_18_1_2_5000/mysql:8.0
+    container_name: mysql-slave
+    hostname: mysql-slave
+    ports:
+      - "13307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+    volumes:
+      - ./slave/data:/var/lib/mysql
+      - ./slave/conf:/etc/mysql/conf.d:ro
+      - /etc/localtime:/etc/localtime:ro
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p123456"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    networks:
+      - mysql-ha
+
+  repl-setup:
+    image: registry.cn-hangzhou.aliyuncs.com/10_18_1_2_5000/mysql:8.0
+    container_name: mysql-repl-setup
+    environment:
+      - MASTER_HOST=mysql-master
+      - SLAVE_HOST=mysql-slave
+      - MYSQL_ROOT_PASSWORD=123456
+    volumes:
+      - ./setup-replication.sh:/scripts/setup-replication.sh:ro
+    entrypoint: ["/bin/bash", "/scripts/setup-replication.sh"]
+    depends_on:
+      mysql-master:
+        condition: service_healthy
+      mysql-slave:
+        condition: service_healthy
+    networks:
+      - mysql-ha
+    restart: "no"
+
+networks:
+  mysql-ha:
+    driver: bridge

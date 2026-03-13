@@ -1,0 +1,102 @@
+# TiDB 主集群 - 部署在 10.18.1.27
+# 包含 PD + TiKV + TiDB + TiCDC（无 MinIO）
+services:
+  pd:
+    image: pingcap/pd:v7.5.0
+    container_name: tidb-primary-pd
+    ports:
+      - "2379:2379"
+    volumes:
+      - ./data/pd:/data
+    command:
+      - --name=pd1
+      - --data-dir=/data/pd
+      - --client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://pd:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-peer-urls=http://pd:2380
+    healthcheck:
+      test: ["CMD", "pd-ctl", "-u", "http://localhost:2379", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - tidb-primary
+
+  tikv:
+    image: pingcap/tikv:v7.5.0
+    container_name: tidb-primary-tikv
+    ports:
+      - "20160:20160"
+    volumes:
+      - ./data/tikv:/data
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv:20160
+      - --data-dir=/data/tikv
+      - --pd=pd:2379
+    depends_on:
+      pd:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tidb-primary
+
+  tidb:
+    image: pingcap/tidb:v7.5.0
+    container_name: tidb-primary-sql
+    ports:
+      - "4000:4000"
+      - "10080:10080"
+    command:
+      - --store=tikv
+      - --path=pd:2379
+    depends_on:
+      - tikv
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:10080/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - tidb-primary
+
+  ticdc:
+    image: pingcap/ticdc:v7.5.0
+    container_name: tidb-primary-ticdc
+    ports:
+      - "8300:8300"
+    command:
+      - server
+      - --pd=pd:2379
+      - --addr=0.0.0.0:8300
+      - --advertise-addr=ticdc:8300
+    depends_on:
+      pd:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tidb-primary
+
+  tidb-init:
+    image: mysql:8.0
+    container_name: tidb-primary-init
+    environment:
+      - TIDB_HOST=tidb
+      - TIDB_ROOT_PASSWORD=123456
+    volumes:
+      - ../init:/init:ro
+      - ../scripts/init-cluster.sh:/scripts/init-cluster.sh:ro
+    entrypoint: ["/bin/bash", "/scripts/init-cluster.sh"]
+    depends_on:
+      tidb:
+        condition: service_healthy
+    networks:
+      - tidb-primary
+    restart: "no"
+
+networks:
+  tidb-primary:
+    driver: bridge

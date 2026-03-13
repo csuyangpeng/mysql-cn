@@ -1,0 +1,3 @@
+-- tidb-init 已设置 root@'%' 密码
+-- 此文件可放置其他初始化 SQL，如创建数据库、用户等
+-- CREATE DATABASE IF NOT EXISTS mydb;

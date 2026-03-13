@@ -43,6 +43,17 @@ docker-compose down
 - 首次启动自动初始化，`init/` 目录下的 `.sql` 脚本会在数据目录为空时执行
 - 数据持久化到 `./data`
 
+### 主从复制（mysql-ha）
+
+```bash
+cd mysql-ha
+docker-compose up -d
+```
+
+- 主库端口 **13306**，从库端口 **13307**
+- `repl-setup` 容器自动配置主从复制后退出
+- 连接主库写、从库读实现读写分离
+
 ---
 
 ## PolarDB-X
@@ -80,6 +91,10 @@ docker-compose down
 - 数据持久化到 `./data`（挂载整个 run 目录）
 - `init/` 目录下的 `.sql` 脚本在首次启动时执行（数据目录无 `.init_done` 时）
 
+### 主从/HA 说明
+
+单容器 PolarDB-X 为开发测试模式，无传统主从。生产级 HA 需使用 **PXD** 或 **K8s** 部署多节点集群，详见 [PolarDB-X 部署文档](https://doc.polardbx.com/deployment/topics/deploy-by-pxd.html)。
+
 ---
 
 ## TiDB
@@ -108,6 +123,31 @@ docker-compose down
 - 需先构建基础镜像 `tidb:local`
 - 数据持久化到 `./data`
 - `init/` 目录下的 `.sql` 脚本在首次启动时执行（数据目录无 `.init_done` 时）
+
+### 分布式集群/HA（tidb-ha）
+
+```bash
+cd tidb-ha
+docker-compose up -d
+```
+
+- 1 PD + 3 TiKV + 1 TiDB，Raft 多副本，具备 HA 能力
+- 端口 **13306**，`tidb-init` 容器自动设置 root 密码并执行 `init/` 脚本
+- 资源需求约 8GB 内存
+
+### 两物理节点 HA 部署
+
+详见 [TiDB 两节点高可用部署](docs/TiDB-两节点高可用部署.md)：使用 TiUP 在两台物理机上混部 PD×3、TiKV×3、TiDB×2，实现有限高可用（可容忍“少数派”节点故障）。
+
+### 主从复制（tidb-replica）
+
+```bash
+# 10.18.1.28 上：cd tidb-replica/secondary && docker-compose up -d
+# 10.18.1.27 上：cd tidb-replica/primary && docker-compose up -d
+# 10.18.1.27 上：cd tidb-replica/scripts && ./setup-replication.sh
+```
+
+双节点主从复制，**无需 MinIO**，TiCDC 增量同步。主故障时备升主，原主恢复后不抢占，详见 [tidb-replica/README.md](tidb-replica/README.md)。
 
 ---
 

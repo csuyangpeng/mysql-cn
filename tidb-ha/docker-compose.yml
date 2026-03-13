@@ -1,0 +1,125 @@
+# TiDB 分布式集群（1 PD + 3 TiKV + 1 TiDB）
+# 资源需求：约 8GB 内存，适合开发/测试 HA 能力
+services:
+  pd:
+    image: pingcap/pd:v7.5.0
+    container_name: tidb-pd
+    ports:
+      - "2379:2379"
+    volumes:
+      - ./data/pd:/data
+    command:
+      - --name=pd1
+      - --data-dir=/data/pd
+      - --client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://pd:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-peer-urls=http://pd:2380
+    healthcheck:
+      test: ["CMD", "pd-ctl", "-u", "http://localhost:2379", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - tidb-ha
+
+  tikv1:
+    image: pingcap/tikv:v7.5.0
+    container_name: tidb-tikv1
+    ports:
+      - "20160:20160"
+    volumes:
+      - ./data/tikv1:/data
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv1:20160
+      - --data-dir=/data/tikv
+      - --pd=pd:2379
+    depends_on:
+      pd:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tidb-ha
+
+  tikv2:
+    image: pingcap/tikv:v7.5.0
+    container_name: tidb-tikv2
+    ports:
+      - "20161:20160"
+    volumes:
+      - ./data/tikv2:/data
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv2:20160
+      - --data-dir=/data/tikv
+      - --pd=pd:2379
+    depends_on:
+      pd:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tidb-ha
+
+  tikv3:
+    image: pingcap/tikv:v7.5.0
+    container_name: tidb-tikv3
+    ports:
+      - "20162:20160"
+    volumes:
+      - ./data/tikv3:/data
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv3:20160
+      - --data-dir=/data/tikv
+      - --pd=pd:2379
+    depends_on:
+      pd:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - tidb-ha
+
+  tidb:
+    image: pingcap/tidb:v7.5.0
+    container_name: tidb-sql
+    ports:
+      - "13306:4000"
+      - "10080:10080"
+    command:
+      - --store=tikv
+      - --path=pd:2379
+    depends_on:
+      - tikv1
+      - tikv2
+      - tikv3
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:10080/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - tidb-ha
+
+  tidb-init:
+    image: mysql:8.0
+    container_name: tidb-init
+    environment:
+      - TIDB_HOST=tidb
+      - TIDB_ROOT_PASSWORD=123456
+    volumes:
+      - ./init:/init:ro
+      - ./init-cluster.sh:/scripts/init-cluster.sh:ro
+    entrypoint: ["/bin/bash", "/scripts/init-cluster.sh"]
+    depends_on:
+      tidb:
+        condition: service_healthy
+    networks:
+      - tidb-ha
+    restart: "no"
+
+networks:
+  tidb-ha:
+    driver: bridge

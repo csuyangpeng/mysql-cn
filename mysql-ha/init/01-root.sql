@@ -1,0 +1,3 @@
+-- MySQL 官方镜像已配置 root@'%'
+-- 此文件可放置其他初始化 SQL（如建库、建用户），主库 init 时执行
+-- CREATE DATABASE IF NOT EXISTS mydb;
