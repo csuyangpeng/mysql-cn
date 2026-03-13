@@ -124,6 +124,16 @@ docker-compose down
 - 数据持久化到 `./data`
 - `init/` 目录下的 `.sql` 脚本在首次启动时执行（数据目录无 `.init_done` 时）
 
+### 标准形式（tidb-std，真实 TiKV）
+
+```bash
+cd tidb-std
+docker-compose up -d
+```
+
+- 1 PD + 1 TiKV + 1 TiDB，真实 TiKV，支持 CommonHandle
+- 端口 **13306**，数据持久化到 `./data/pd`、`./data/tikv`
+
 ### 分布式集群/HA（tidb-ha）
 
 ```bash
