@@ -1,0 +1,13 @@
+services:
+  tidb:
+    build: .
+    image: tidb:local
+    container_name: tidb
+    ports:
+      - "13306:4000"
+      - "10080:10080"
+    environment:
+      - TIDB_ROOT_PASSWORD=123456
+    volumes:
+      - ./data:/tmp/tidb
+    restart: unless-stopped

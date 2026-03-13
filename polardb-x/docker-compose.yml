@@ -1,0 +1,16 @@
+services:
+  polardb-x:
+    build: .
+    image: polardb-x:local
+    container_name: polardb-x
+    ports:
+      - "13306:8527"
+    environment:
+      - POLARDBX_ROOT_PASSWORD=123456
+    volumes:
+      - ./data:/home/polarx/polardbx/build/run
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped
+    # entrypoint: ["/bin/sh", "-c", "tail -f /dev/null"]
+    # command: ["/bin/sh", "-c", "tail -f /dev/null"]
+    
