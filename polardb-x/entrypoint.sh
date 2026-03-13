@@ -18,6 +18,16 @@ for i in $(seq 1 60); do
 GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;" | su polarx -c "mysql -h127.0.0.1 -P8527 -upolardbx_root -p123456"
     echo "root user created successfully."
+    # 执行初始化 SQL（仅首次，数据目录无 .init_done 时）
+    INIT_DONE="/home/polarx/polardbx/build/run/.init_done"
+    if [ ! -f "$INIT_DONE" ] && [ -d /init ] && [ -n "$(ls -A /init 2>/dev/null)" ]; then
+      echo "Running init SQL..."
+      for f in /init/*.sql; do
+        [ -f "$f" ] && su polarx -c "mysql -h127.0.0.1 -P8527 -uroot -p'$ROOT_PASS' < '$f'" && echo "  Executed: $f"
+      done
+      touch "$INIT_DONE"
+      echo "Init SQL completed."
+    fi
     break
   fi
   echo "Waiting... ($i/60)"

@@ -28,5 +28,18 @@ if mysql -h 127.0.0.1 -P 4000 -u root -e 'SELECT 1' 2>/dev/null; then
   echo "Root password set for remote access (root@'%')."
 fi
 
+# 执行初始化 SQL（仅首次，数据目录无 .init_done 时）
+INIT_DONE="/tmp/tidb/.init_done"
+if [ ! -f "$INIT_DONE" ] && [ -d /init ] && [ -n "$(ls -A /init 2>/dev/null)" ]; then
+  echo "Running init SQL..."
+  for f in /init/*.sql; do
+    if [ -f "$f" ]; then
+      MYSQL_PWD="$TIDB_ROOT_PASSWORD" mysql -h 127.0.0.1 -P 4000 -u root < "$f" && echo "  Executed: $f"
+    fi
+  done
+  touch "$INIT_DONE"
+  echo "Init SQL completed."
+fi
+
 # Keep container running
 wait $TIDB_PID

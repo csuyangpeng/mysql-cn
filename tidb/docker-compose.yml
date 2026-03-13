@@ -10,4 +10,5 @@ services:
       - TIDB_ROOT_PASSWORD=123456
     volumes:
       - ./data:/tmp/tidb
+      - ./init:/init:ro
     restart: unless-stopped

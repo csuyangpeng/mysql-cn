@@ -9,6 +9,7 @@ services:
       - POLARDBX_ROOT_PASSWORD=123456
     volumes:
       - ./data:/home/polarx/polardbx/build/run
+      - ./init:/init:ro
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
     

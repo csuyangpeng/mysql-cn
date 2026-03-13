@@ -20,6 +20,8 @@ echo "等待 PolarDB-X 就绪（约 60-90 秒）..."
 for i in $(seq 1 90); do
   if docker exec polardb-x mysql -h127.0.0.1 -P8527 -upolardbx_root -p123456 -e 'select 1' 2>/dev/null; then
     echo "PolarDB-X 已就绪"
+    echo "等待 init SQL 执行完成（5 秒）..."
+    sleep 5
     break
   fi
   sleep 2

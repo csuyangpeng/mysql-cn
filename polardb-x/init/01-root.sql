@@ -1,0 +1,5 @@
+-- PolarDB-X entrypoint 已创建 root@'%' 并配置密码
+-- 此文件可放置其他初始化 SQL，如创建数据库、用户等
+-- CREATE DATABASE IF NOT EXISTS mydb;
+-- CREATE USER 'app'@'%' IDENTIFIED BY 'password';
+-- GRANT ALL ON mydb.* TO 'app'@'%';
