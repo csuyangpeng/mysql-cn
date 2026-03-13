@@ -1,0 +1,5 @@
+-- MySQL 官方镜像已通过 MYSQL_ROOT_PASSWORD 和 MYSQL_ROOT_HOST=% 配置 root@'%'
+-- 此文件可放置其他初始化 SQL，如创建数据库、用户等
+-- CREATE DATABASE IF NOT EXISTS mydb;
+-- CREATE USER 'app'@'%' IDENTIFIED BY 'password';
+-- GRANT ALL ON mydb.* TO 'app'@'%';

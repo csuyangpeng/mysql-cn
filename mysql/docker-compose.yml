@@ -1,0 +1,13 @@
+services:
+  mysql:
+    image: registry.cn-hangzhou.aliyuncs.com/10_18_1_2_5000/mysql:8.0
+    container_name: mysql
+    ports:
+      - "13306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=123456
+    volumes:
+      - ./data:/var/lib/mysql
+      - ./init:/docker-entrypoint-initdb.d:ro
+      - /etc/localtime:/etc/localtime:ro
+    restart: unless-stopped

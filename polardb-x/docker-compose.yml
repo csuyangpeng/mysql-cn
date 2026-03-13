@@ -11,6 +11,4 @@ services:
       - ./data:/home/polarx/polardbx/build/run
       - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped
-    # entrypoint: ["/bin/sh", "-c", "tail -f /dev/null"]
-    # command: ["/bin/sh", "-c", "tail -f /dev/null"]
     
