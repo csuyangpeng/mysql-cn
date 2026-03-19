@@ -72,12 +72,14 @@ services:
       - "8300:8300"
     volumes:
       - ../config:/etc/cdc:ro
+      - ./data/cdc:/data/cdc
     command:
       - /cdc
       - server
-      - --pd=pd:2379
+      - "--pd=http://pd:2379"
       - --addr=0.0.0.0:8300
       - --advertise-addr=ticdc:8300
+      - --data-dir=/data/cdc
     depends_on:
       pd:
         condition: service_healthy
