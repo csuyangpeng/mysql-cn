@@ -65,7 +65,7 @@ docker compose up -d
 
 ## 3. 建立同步
 
-在 **10.18.1.27** 上执行（需 mysql 客户端，且能访问 10.18.1.28:4000）：
+在 **10.18.1.27** 上执行（需 mysql 客户端，且能访问 10.18.1.28:4000）。root 密码由 TiDB 环境变量 TIDB_ROOT_PASSWORD=123456 设置：
 
 ```bash
 cd ~/mysql-cn/tidb-replica/scripts
@@ -159,9 +159,7 @@ tidb-replica/
 │   ├── setup-replication.sh
 │   ├── failover.sh
 │   ├── recovery.sh
-│   ├── init-cluster.sh
 │   └── check_tidb.sh
-├── init/
 └── docs/
 ```
 

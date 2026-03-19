@@ -2,7 +2,7 @@
 # 包含 PD + TiKV + TiDB + TiCDC（备升主后需反向同步，故也部署 TiCDC）
 services:
   pd:
-    image: pingcap/pd:v7.5.0
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/pd:v7.5.0
     container_name: tidb-secondary-pd
     ports:
       - "2379:2379"
@@ -25,7 +25,7 @@ services:
       - tidb-secondary
 
   tikv:
-    image: pingcap/tikv:v7.5.0
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/tikv:v7.5.0
     container_name: tidb-secondary-tikv
     ports:
       - "20160:20160"
@@ -44,11 +44,13 @@ services:
       - tidb-secondary
 
   tidb:
-    image: pingcap/tidb:v7.5.0
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/tidb:v7.5.0
     container_name: tidb-secondary-sql
     ports:
       - "4000:4000"
       - "10080:10080"
+    environment:
+      - TIDB_ROOT_PASSWORD=123456
     command:
       - --store=tikv
       - --path=pd:2379
@@ -64,7 +66,7 @@ services:
       - tidb-secondary
 
   ticdc:
-    image: pingcap/ticdc:v7.5.0
+    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/ticdc:v7.5.0
     container_name: tidb-secondary-ticdc
     ports:
       - "8300:8300"
@@ -79,23 +81,6 @@ services:
     restart: unless-stopped
     networks:
       - tidb-secondary
-
-  tidb-init:
-    image: mysql:8.0
-    container_name: tidb-secondary-init
-    environment:
-      - TIDB_HOST=tidb
-      - TIDB_ROOT_PASSWORD=123456
-    volumes:
-      - ../init:/init:ro
-      - ../scripts/init-cluster.sh:/scripts/init-cluster.sh:ro
-    entrypoint: ["/bin/bash", "/scripts/init-cluster.sh"]
-    depends_on:
-      tidb:
-        condition: service_healthy
-    networks:
-      - tidb-secondary
-    restart: "no"
 
 networks:
   tidb-secondary:
