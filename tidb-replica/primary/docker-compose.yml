@@ -73,6 +73,7 @@ services:
     volumes:
       - ../config:/etc/cdc:ro
     command:
+      - /cdc
       - server
       - --pd=pd:2379
       - --addr=0.0.0.0:8300

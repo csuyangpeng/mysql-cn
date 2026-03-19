@@ -71,6 +71,7 @@ services:
     ports:
       - "8300:8300"
     command:
+      - /cdc
       - server
       - --pd=pd:2379
       - --addr=0.0.0.0:8300
