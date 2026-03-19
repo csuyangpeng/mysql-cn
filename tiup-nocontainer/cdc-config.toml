@@ -1,0 +1,12 @@
+# TiCDC 单向同步配置（27 -> 28）
+# 确保 DDL（CREATE TABLE 等）同步到下游
+
+# 不使用 BDR 模式（单向同步）
+bdr-mode = false
+
+# 复制无主键表（如 test.t1）
+force-replicate = true
+
+# 同步所有库表，包含 DDL
+[filter]
+rules = ['*.*']

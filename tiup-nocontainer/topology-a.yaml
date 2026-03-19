@@ -1,0 +1,26 @@
+global:
+  user: "sder"
+  ssh_port: 22
+  deploy_dir: "/tidb-deploy"
+  data_dir: "/tidb-data"
+
+pd_servers:
+  - host: 10.18.1.27
+
+tidb_servers:
+  - host: 10.18.1.27
+
+tikv_servers:
+  - host: 10.18.1.27
+
+cdc_servers:
+  - host: 10.18.1.27
+    port: 8300
+    deploy_dir: "/tidb-deploy/cdc-8300"
+    data_dir: "/tidb-data/cdc-8300"
+
+monitoring_servers:
+  - host: 10.18.1.27
+
+grafana_servers:
+  - host: 10.18.1.27

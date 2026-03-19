@@ -1,0 +1,7 @@
+# 双向复制模式（BDR）
+bdr-mode = true
+filter.rules = ['*.*']
+sort-engine = "unified"
+enable-sync-point = true
+sync-point-interval = "10m"
+sync-point-retention = "24h"
