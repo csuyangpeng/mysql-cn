@@ -31,13 +31,15 @@ for i in 1 2 3 4 5; do
   sleep 2
 done
 
-# 2. 创建 TiCDC Changefeed（从当前时间开始，无需 BR 全量）
+# 2. 创建 TiCDC Changefeed（含 DDL 同步，使用 config/cdc-config.toml）
 echo "[2/2] 创建 TiCDC 同步任务..."
 docker exec tidb-primary-ticdc cdc cli changefeed remove -c primary-to-secondary --server=http://127.0.0.1:8300 2>/dev/null || true
-docker exec tidb-primary-ticdc cdc cli changefeed create \
+echo y | docker exec -i tidb-primary-ticdc cdc cli changefeed create \
   --server="http://127.0.0.1:8300" \
-  --sink-uri="mysql://root:${ROOT_PASS}@${SECONDARY_IP}:4000" \
-  --changefeed-id="primary-to-secondary"
+  --sink-uri="mysql://root:${ROOT_PASS}@${SECONDARY_IP}:4000/" \
+  --changefeed-id="primary-to-secondary" \
+  --start-ts=0 \
+  --config=/etc/cdc/cdc-config.toml
 
 echo ""
 echo "=== 主从复制配置完成 ==="

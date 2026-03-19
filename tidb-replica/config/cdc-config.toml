@@ -1,0 +1,8 @@
+# TiCDC 单向同步配置（primary -> secondary）
+# 确保 DDL（CREATE TABLE 等）同步到下游
+
+bdr-mode = false
+force-replicate = true
+
+[filter]
+rules = ['*.*']

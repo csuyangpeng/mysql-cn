@@ -68,6 +68,8 @@ services:
     container_name: tidb-primary-ticdc
     ports:
       - "8300:8300"
+    volumes:
+      - ../config:/etc/cdc:ro
     command:
       - server
       - --pd=pd:2379
