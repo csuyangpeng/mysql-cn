@@ -14,10 +14,12 @@ echo "备: $SECONDARY_HOST"
 echo ""
 
 echo "[1/2] 启动从集群 (secondary)..."
+echo "ssh $SECONDARY_HOST \"cd $REPLICA_DIR/secondary && docker-compose up -d\""
 ssh $SECONDARY_HOST "cd $REPLICA_DIR/secondary && docker-compose up -d"
 
 echo ""
 echo "[2/2] 启动主集群 (primary)..."
+echo "ssh $PRIMARY_HOST \"cd $REPLICA_DIR/primary && docker-compose up -d\""
 ssh $PRIMARY_HOST "cd $REPLICA_DIR/primary && docker-compose up -d"
 
 echo ""
