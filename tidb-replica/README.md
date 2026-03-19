@@ -153,6 +153,9 @@ tidb-replica/
 ├── secondary/         # 从集群 docker-compose
 ├── config/
 │   └── cdc-config.toml   # TiCDC 配置（DDL 同步）
+├── tidb/                 # 自定义 TiDB 镜像（读取 TIDB_ROOT_PASSWORD 设置 root 密码）
+│   ├── Dockerfile
+│   └── entrypoint.sh
 ├── scripts/
 │   ├── start-cluster.sh
 │   ├── stop-cluster.sh

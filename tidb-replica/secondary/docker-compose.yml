@@ -44,7 +44,8 @@ services:
       - tidb-secondary
 
   tidb:
-    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/tidb:v7.5.0
+    # image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/tidb:v7.5.0
+    image: registry.cn-hangzhou.aliyuncs.com/10_18_1_2_5000/tidb-replica:local
     container_name: tidb-secondary-sql
     ports:
       - "4000:4000"
