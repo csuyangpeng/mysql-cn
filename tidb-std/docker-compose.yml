@@ -1,4 +1,7 @@
 # TiDB 标准形式：1 PD + 1 TiKV + 1 TiDB（真实 TiKV，支持 CommonHandle）
+# tidb 使用本地 Dockerfile 启动：读取 TIDB_ROOT_PASSWORD，首启后在有标记前按文件名顺序执行 ./init/*.sql
+# 标记：./data/tidb_entrypoint/.initdb_done；删除后可再次执行 /init
+
 services:
   pd:
     image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/pd:v8.5.0
@@ -46,15 +49,16 @@ services:
       - tidb-std
 
   tidb:
-    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/tidb:v8.5.0
+    image: registry.cn-hangzhou.aliyuncs.com/10_18_1_2_5000/tidb:v8.5.0
     container_name: tidb-std-sql
     ports:
       - "13306:4000"
       - "10080:10080"
     environment:
-      - TIDB_ROOT_PASSWORD=123456
+      - TIDB_ROOT_PASSWORD=${TIDB_ROOT_PASSWORD:-123456}
     volumes:
       - ./init:/init:ro
+      - ./data/tidb_entrypoint:/var/lib/tidb-entrypoint:rw
     command:
       - --store=tikv
       - --path=pd:2379
@@ -68,23 +72,6 @@ services:
     restart: unless-stopped
     networks:
       - tidb-std
-
-  tidb-init:
-    image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/library/mysql:8.0
-    container_name: tidb-std-init
-    environment:
-      - TIDB_HOST=tidb
-      - TIDB_ROOT_PASSWORD=123456
-    volumes:
-      - ./init:/init:ro
-      - ./init-cluster.sh:/scripts/init-cluster.sh:ro
-    entrypoint: ["/bin/bash", "/scripts/init-cluster.sh"]
-    depends_on:
-      tidb:
-        condition: service_healthy
-    networks:
-      - tidb-std
-    restart: "no"
 
 networks:
   tidb-std:
