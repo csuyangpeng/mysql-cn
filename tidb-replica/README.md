@@ -16,6 +16,8 @@
                     Keepalived (双 BACKUP + nopreempt + unicast)
 ```
 
+> 现场按步骤部署并逐步观测：见 [docs/部署与观测手册.md](docs/部署与观测手册.md)。
+
 - 应用只连 `10.18.1.100:4000`，不直连单台主机。
 - 两套集群互相独立，不做跨站 Raft；站点内单副本，定位为容灾而非高可用。
 - 全程使用 TiDB / TiCDC / PD 自带接口，**不依赖 MySQL 数据库或 MySQL 客户端**。
