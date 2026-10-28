@@ -5,7 +5,8 @@ services:
     image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/pd:v7.5.0
     container_name: tidb-secondary-pd
     ports:
-      - "2379:2379"
+      # 仅本机可访问，供 keepalived 健康检查与运维使用
+      - "127.0.0.1:2379:2379"
     volumes:
       - ./data/pd:/data
     command:
@@ -28,7 +29,7 @@ services:
     image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/tikv:v7.5.0
     container_name: tidb-secondary-tikv
     ports:
-      - "20160:20160"
+      - "127.0.0.1:20160:20160"
     volumes:
       - ./data/tikv:/data
     command:
@@ -48,8 +49,12 @@ services:
     image: registry.cn-hangzhou.aliyuncs.com/10_18_1_2_5000/tidb-replica:local
     container_name: tidb-secondary-sql
     ports:
+      # 4000 必须监听 0.0.0.0：VIP 漂到本机后，流量经 DNAT 进入容器
       - "4000:4000"
       - "10080:10080"
+    volumes:
+      # 覆盖镜像入口脚本：首次初始化时设置 tidb_gc_life_time=24h
+      - ../scripts/tidb-entrypoint.sh:/entrypoint.sh:ro
     environment:
       - TIDB_ROOT_PASSWORD=123456
     command:
@@ -70,7 +75,7 @@ services:
     image: swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/pingcap/ticdc:v7.5.0
     container_name: tidb-secondary-ticdc
     ports:
-      - "8300:8300"
+      - "127.0.0.1:8300:8300"
     volumes:
       - ./data/cdc:/data/cdc
     command:

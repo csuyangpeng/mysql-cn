@@ -1,151 +1,135 @@
-# TiDB 主从 + Keepalived 集成
+# Keepalived 集成说明
 
-Keepalived 负责 VIP 漂移，应用始终连接 VIP，无需改连接地址。
+本文只讲 Keepalived 部分的原理、部署与排错。完整部署与演练见
+[../README.md](../README.md)，总体设计见 [主备容灾总体方案.md](主备容灾总体方案.md)。
 
-## 架构
+## 1. 架构
 
 ```
-                    VIP (如 10.18.1.100)
-                         │
-         ┌───────────────┼───────────────┐
-         │               │               │
-    10.18.1.27       10.18.1.28     应用连接
-    (主) keepalived  (备) keepalived   VIP:4000
-    TiDB:4000        TiDB:4000
+                 VIP 10.18.1.100:4000
+                          │
+          ┌───────────────┴───────────────┐
+          │                               │
+   10.18.1.27 (主)                  10.18.1.28 (备)
+   keepalived MASTER                keepalived BACKUP
+   TiDB 4000 (0.0.0.0)              TiDB 4000 (0.0.0.0)
 ```
 
-- **正常**：VIP 在主机 10.18.1.27，应用连 VIP:4000 → 主 TiDB
-- **主故障**：VIP 漂到 10.18.1.28，应用连 VIP:4000 → 备 TiDB
-- **原主恢复**：执行 `recovery.sh` 建立反向同步，VIP 仍可留在当前主（不抢占）
+- 正常：VIP 在 .27，应用连 `10.18.1.100:4000`。
+- .27 TiDB 不可用：健康检查失败 → .27 进入 FAULT → 释放 VIP →
+  .28 收不到通告成为 MASTER → VIP 漂到 .28。
+- .27 恢复：健康检查通过后回到 BACKUP，**不抢回** VIP。
 
-## 1. 安装 Keepalived
+## 2. 三个关键配置
+
+### 2.1 双 BACKUP + nopreempt
+
+两端都写 `state BACKUP`，靠 `priority`（100 / 90）决定初始 MASTER。
+`nopreempt` 保证主恢复后不抢回，避免 VIP 来回漂移。
+
+> `nopreempt` 只在 BACKUP 状态生效，所以**两端都必须是 BACKUP**。
+
+### 2.2 track_script 不配 weight
+
+```conf
+vrrp_script check_tidb {
+    script "/etc/keepalived/check_tidb.sh"
+    interval 3
+    timeout 2
+    fall 2
+    rise 1
+    # 不要写 weight
+}
+```
+
+配了 `weight -20` 只会把优先级降到 80，但备站也是 `nopreempt`，
+不会因为对方优先级降低而接管。不配 `weight` 时，脚本失败会让本节点进入
+**FAULT** 并释放 VIP，备站才能在主站停止通告后接管。
+
+### 2.3 unicast
+
+现网组播不可靠，必须指定单播对端：
+
+```conf
+unicast_src_ip 10.18.1.27
+unicast_peer {
+    10.18.1.28
+}
+```
+
+### 2.4 脚本安全（keepalived 2.2+）
+
+```conf
+global_defs {
+    enable_script_security
+    script_user root
+}
+```
+
+不加会报 `SECURITY VIOLATION - scripts are being executed but script_security not enabled`。
+`enable_script_security` 还会检查脚本路径不能被非 root 用户写入，所以脚本放在
+`/etc/keepalived/`（root 755）即可。
+
+## 3. 健康检查
+
+`/etc/keepalived/check_tidb.sh` 三项全过才返回 0：
 
 ```bash
-# Ubuntu/Debian
-apt install keepalived
-
-# CentOS/RHEL
-yum install keepalived
-```
-
-## 2. 健康检查脚本
-
-Keepalived 通过脚本判断 TiDB 是否可用，决定是否释放 VIP。
-
-```bash
-# /etc/keepalived/check_tidb.sh
 #!/bin/bash
-# 检查本机 TiDB 是否可连接
-mysql -h127.0.0.1 -P4000 -uroot -p123456 -e 'SELECT 1' 2>/dev/null
-exit $?
+set -u
+curl -fsS --max-time 2 http://127.0.0.1:10080/status >/dev/null 2>&1 || exit 1
+curl -fsS --max-time 2 http://127.0.0.1:2379/pd/api/v1/health >/dev/null 2>&1 || exit 1
+stores=$(curl -fsS --max-time 2 http://127.0.0.1:2379/pd/api/v1/stores 2>/dev/null) || exit 1
+echo "$stores" | grep -Eq '"state_name"[[:space:]]*:[[:space:]]*"Up"' || exit 1
 ```
+
+- 覆盖 TiDB 进程、PD、TiKV，避免 TiDB 活着但存储不可用时 VIP 仍停留。
+- 全部使用 TiDB/PD 自带 HTTP 接口，不依赖 MySQL 客户端。
+- PD 返回的是格式化 JSON（冒号后有空格），grep 必须容忍空白。
+
+## 4. 部署
 
 ```bash
-chmod +x /etc/keepalived/check_tidb.sh
+# 先 .27，后 .28
+sudo ./scripts/deploy-keepalived.sh master    # 在 10.18.1.27
+sudo ./scripts/deploy-keepalived.sh backup    # 在 10.18.1.28
 ```
 
-## 3. 主节点配置 (10.18.1.27)
+脚本会：
 
-`/etc/keepalived/keepalived.conf`：
+1. 备份已有 `/etc/keepalived/keepalived.conf`（解析软链接后备份真实文件）；
+2. 安装配置、`check_tidb.sh`、`notify.sh`；
+3. 校验网卡存在；
+4. `keepalived -t` 语法检查；
+5. `systemctl enable/restart keepalived`。
 
-```
-vrrp_script check_tidb {
-    script "/etc/keepalived/check_tidb.sh"
-    interval 3
-    weight -20
-    fall 2
-    rise 1
-}
-
-vrrp_instance VI_TIDB {
-    state MASTER
-    interface eth0
-    virtual_router_id 51
-    priority 100
-    advert_int 1
-    authentication {
-        auth_type PASS
-        auth_pass tidb123
-    }
-    virtual_ipaddress {
-        10.18.1.100
-    }
-    track_script {
-        check_tidb
-    }
-}
-```
-
-> `interface` 改为实际网卡名（如 `ens33`），`10.18.1.100` 改为规划好的 VIP。
-
-## 4. 备节点配置 (10.18.1.28)
-
-```
-vrrp_script check_tidb {
-    script "/etc/keepalived/check_tidb.sh"
-    interval 3
-    weight -20
-    fall 2
-    rise 1
-}
-
-vrrp_instance VI_TIDB {
-    state BACKUP
-    interface eth0
-    virtual_router_id 51
-    priority 90
-    advert_int 1
-    authentication {
-        auth_type PASS
-        auth_pass tidb123
-    }
-    virtual_ipaddress {
-        10.18.1.100
-    }
-    track_script {
-        check_tidb
-    }
-}
-```
-
-## 5. 启动
+## 5. 验证
 
 ```bash
-systemctl enable keepalived
-systemctl start keepalived
+# VIP 只在 .27
+ip -4 addr show ens3 | grep 10.18.1.100
+
+# 状态文件：.27=MASTER，.28=BACKUP
+sudo cat /run/tidb-dr-state
+
+# 经 VIP 访问
+curl -s -o /dev/null -w '%{http_code}\n' http://10.18.1.100:10080/status
 ```
 
-## 6. 应用连接
+## 6. 排错
 
-应用统一连接 **VIP:4000**，例如：
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| `SECURITY VIOLATION` | 未启用 `enable_script_security` | 在 `global_defs` 中启用，`script_user root` |
+| VIP 不漂移 | `track_script` 配了 `weight` | 去掉 `weight`，让脚本失败进入 FAULT |
+| 主恢复后 VIP 被抢回 | 未配 `nopreempt` 或 state 写成 MASTER | 两端改 `state BACKUP` + `nopreempt` |
+| 双 master / VIP 冲突 | 组播不通或未配 unicast | 配 `unicast_src_ip` / `unicast_peer` |
+| 脚本一直成功但站点不可用 | 只检查了 TiDB 进程 | 使用三项健康检查（TiDB + PD + TiKV） |
+| 初始 master 是 .28 | 先启动了 .28 | 先启 .27；或停 .28 的 keepalived 让 .27 接管后再启 .28 |
 
-```
-mysql -h10.18.1.100 -P4000 -uroot -p123456
-```
+日志：
 
-主备切换时，VIP 自动漂移，应用无需改配置。
-
-## 7. 与 TiCDC 的配合
-
-| 阶段 | Keepalived | TiCDC |
-|------|------------|-------|
-| 主故障 | VIP 漂到备 | 原主→备 的 changefeed 自动停止 |
-| 应用 | 连 VIP，自动到备 | - |
-| 原主恢复 | 主优先级高，但可保持 VIP 在备 | 执行 `recovery.sh` 建立反向同步 |
-
-**不抢占**：原主恢复后，若希望 VIP 不漂回原主，需在 failover 后调整优先级：
-- 将原主 (10.18.1.27) 的 `priority` 改为 80
-- 备 (10.18.1.28) 保持 90 或更高
-- 重启原主上的 keepalived，VIP 会留在当前主
-
-## 8. 可选：状态变化时执行脚本
-
-在 `vrrp_instance` 中增加 `notify_master` / `notify_backup`，在角色变化时执行脚本（如发告警、触发 `recovery.sh`）：
-
-```
-vrrp_instance VI_TIDB {
-    ...
-    notify_master "/path/to/on_master.sh"
-    notify_backup "/path/to/on_backup.sh"
-}
+```bash
+journalctl -u keepalived -f
+tail -f /var/log/keepalived-tidb.log
 ```
